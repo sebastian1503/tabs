@@ -7,6 +7,7 @@ import os
 import pdfkit
 import requests
 import html
+import numpy as np
 
 def text_to_pdf_pdfkit(text, output_file):
     with open ("text.html", "w") as output:
@@ -44,6 +45,7 @@ def extract_title(html):
     if match:
         return match.group(1)
     else:
+        return "no title"
         raise Exception("No content found.")
 
 def clean_content(content):
@@ -97,10 +99,44 @@ def create_latex_pdf(content):
         pdf_file_path = os.path.join(os.path.curdir, 'document.pdf')
         return pdf_file_path
 
+def text_to_multicolumn(text):
+
+    max_lines_per_page = 49
+    max_characters_per_page = 111
+    min_v_dist = 10
+    lines_in_list = text.split("\n")
+    restlines = len(lines_in_list)
+    returnlines = []
+    while restlines > max_lines_per_page:
+        max_length_first_block = np.max([len(i) for i in lines_in_list[0:max_lines_per_page]])
+        restlines -= max_lines_per_page
+        end_second_block = np.min([max_lines_per_page, restlines])
+        max_length_second_block = np.max([len(i) for i in lines_in_list[max_lines_per_page:max_lines_per_page + end_second_block]])
+        if (max_length_first_block + max_length_second_block + min_v_dist) < max_characters_per_page:
+            min_size = max_length_first_block + min_v_dist
+            for i in range(max_lines_per_page):
+                if i < restlines:
+                    fill_character = min_size - len(lines_in_list[i])
+                    returnlines.append(lines_in_list[i] + fill_character * " " + lines_in_list[i+max_lines_per_page])
+                else:
+                    returnlines.append(lines_in_list[i])
+            if restlines>max_lines_per_page:
+                restlines-=max_lines_per_page
+                lines_in_list = lines_in_list[2*max_lines_per_page:]
+                    
+    return "\n".join(returnlines) + "\n".join(lines_in_list)
+    
+    
+
+
 def main():
     url = 'https://tabs.ultimate-guitar.com/tab/coldplay/viva-la-vida-chords-675427'  # Ersetze dies durch die gewünschte URL
     url = 'https://tabs.ultimate-guitar.com/tab/coldplay/the-scientist-chords-50712'
+    url = "https://tabs.ultimate-guitar.com/tab/britney-spears/baby-one-more-time-chords-279810"
+    narcotic_not_working = "https://tabs.ultimate-guitar.com/tab/liquido/narcotic-chords-924106"
+    #url = 'https://tabs.ultimate-guitar.com/tab/bryan-adams/summer-of-69-chords-843137'
     try:
+        
         html_content = fetch_website_content(url)
         
         title = extract_title(html_content)
@@ -108,11 +144,20 @@ def main():
         extracted_content = extract_content(html_content)
         
         cleaned_content = clean_content(extracted_content)
+        '''
+        title = "test"
+        cleaned_content = ""
+        for i in range(60):
+            num = f"{i}"
+            cleaned_content += num + (111 - len(num))*"X"
+        '''
+        cleaned_content = text_to_multicolumn(cleaned_content)
 
         #cleaned_content = escape_latex(cleaned_content)
         
         #pdf_file_path = create_latex_pdf(cleaned_content)
-        output_name = f"{"_".join(title.split(" "))}"
+        output_folder = "out/"
+        output_name = output_folder + f"{"_".join(title.split(" "))}"
         with open (output_name + '.txt', 'w',  encoding='utf-8') as file:
             file.write(cleaned_content)
             

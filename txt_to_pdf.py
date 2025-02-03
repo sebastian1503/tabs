@@ -8,9 +8,9 @@ class PDF(FPDF):
         self.ln(10)  # Zeilenumbruch
 
     def chapter_body(self, body):
-        self.set_font('Courier', '', 12)  # Monospaced Font für Text
+        self.set_font('Courier', '', 8)  # Monospaced Font für Text
         self.multi_cell(0, 5, body)  # Multi_Cell sorgt für Textumbruch
-        self.ln()
+        #self.ln()
 # Funktion zum Umwandeln von TXT zu PDF
 def txt_to_pdf(text, pdf_file):
     pdf = PDF()
