@@ -8,6 +8,23 @@ import pdfkit
 import requests
 import html
 import numpy as np
+from parse_html import TabParser
+
+CHARACTERS_PER_LINE_AT_WRITING_SIZE_8 = 111
+CHARACTERS_PER_LINE_AT_WRITING_SIZE_9 = 98
+CHARACTERS_PER_LINE_AT_WRITING_SIZE_10 = 88
+CHARACTERS_PER_LINE_AT_WRITING_SIZE_11 = 80
+CHARACTERS_PER_LINE_AT_WRITING_SIZE_12 =74
+
+LINES_PER_PAGE_AT_SPACING_3 = 81
+LINES_PER_PAGE_AT_SPACING_4 = 60
+
+CHARACTERS_PER_LINE = CHARACTERS_PER_LINE_AT_WRITING_SIZE_8
+LINES_PER_PAGE = LINES_PER_PAGE_AT_SPACING_3
+
+
+
+
 
 def text_to_pdf_pdfkit(text, output_file):
     with open ("text.html", "w") as output:
@@ -101,9 +118,9 @@ def create_latex_pdf(content):
 
 def text_to_multicolumn(text):
 
-    max_lines_per_page = 49
-    max_characters_per_page = 111
-    min_v_dist = 10
+    max_lines_per_page = LINES_PER_PAGE
+    max_characters_per_page = CHARACTERS_PER_LINE
+    min_v_dist = 0
     lines_in_list = text.split("\n")
     restlines = len(lines_in_list)
     returnlines = []
@@ -123,6 +140,9 @@ def text_to_multicolumn(text):
             if restlines>max_lines_per_page:
                 restlines-=max_lines_per_page
                 lines_in_list = lines_in_list[2*max_lines_per_page:]
+            else:
+                restlines = 0
+                lines_in_list = []
                     
     return "\n".join(returnlines) + "\n".join(lines_in_list)
     
@@ -133,24 +153,23 @@ def main():
     url = 'https://tabs.ultimate-guitar.com/tab/coldplay/viva-la-vida-chords-675427'  # Ersetze dies durch die gewünschte URL
     url = 'https://tabs.ultimate-guitar.com/tab/coldplay/the-scientist-chords-50712'
     url = "https://tabs.ultimate-guitar.com/tab/britney-spears/baby-one-more-time-chords-279810"
-    narcotic_not_working = "https://tabs.ultimate-guitar.com/tab/liquido/narcotic-chords-924106"
+    url = "https://tabs.ultimate-guitar.com/tab/liquido/narcotic-chords-924106"
     #url = 'https://tabs.ultimate-guitar.com/tab/bryan-adams/summer-of-69-chords-843137'
     try:
         
         html_content = fetch_website_content(url)
-        
-        title = extract_title(html_content)
 
-        extracted_content = extract_content(html_content)
+        with open("debug.html", 'w',  encoding='utf-8') as file:
+            file.write(html_content)
+        
+        tabParser = TabParser(html_content)
+
+        title = tabParser.get_song_name()
+
+        extracted_content = tabParser.get_tabs_content()
         
         cleaned_content = clean_content(extracted_content)
-        '''
-        title = "test"
-        cleaned_content = ""
-        for i in range(60):
-            num = f"{i}"
-            cleaned_content += num + (111 - len(num))*"X"
-        '''
+        
         cleaned_content = text_to_multicolumn(cleaned_content)
 
         #cleaned_content = escape_latex(cleaned_content)
@@ -162,12 +181,23 @@ def main():
             file.write(cleaned_content)
             
         #pdf_file_path = "Test.pdf"
-        txt_to_pdf(cleaned_content, output_name + ".pdf")
+        txt_to_pdf(cleaned_content, title, output_name + ".pdf")
         
-        print(f"PDF wurde erfolgreich erstellt:")
+        print(f"PDF {title} wurde erfolgreich erstellt:")
     
     except Exception as e:
         print(f"Fehler: {e}")
 
+
+def testPDF():
+    
+    title = "test"
+    cleaned_content = ""
+    for i in range(200):
+        num = f"{i}"
+        cleaned_content += num + (CHARACTERS_PER_LINE - len(num))*"X"
+    txt_to_pdf(cleaned_content, title, "out/" + title + ".pdf")
+
 if __name__ == "__main__":
+    #testPDF()
     main()
