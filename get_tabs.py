@@ -22,7 +22,49 @@ LINES_PER_PAGE_AT_SPACING_4 = 60
 CHARACTERS_PER_LINE = CHARACTERS_PER_LINE_AT_WRITING_SIZE_8
 LINES_PER_PAGE = LINES_PER_PAGE_AT_SPACING_3
 
-
+def transpose(songtext, transpose_by, german):
+    # Alle möglichen Akkorde mit deutschen und englischen Noten
+    notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+    german_notes = ["C", "Cis", "D", "Dis", "E", "F", "Fis", "G", "Gis", "A", "B", "H"]
+    if german:
+        notes = german_notes
+    
+    # Erweiterung um b-Notation
+    notes_flat = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
+    german_notes_flat = ["C", "Des", "D", "Es", "E", "F", "Ges", "G", "As", "A", "B", "H"]
+    if german:
+        notes_flat = german_notes_flat
+    
+    # Mapping von deutschen und englischen Noten
+    note_map = {n: i for i, n in enumerate(notes)}
+    note_map.update({n: i for i, n in enumerate(notes_flat)})
+    #note_map.update({n: i for i, n in enumerate(german_notes)})
+    #note_map.update({n: i for i, n in enumerate(german_notes_flat)})
+    
+    # Funktion zum Transponieren eines einzelnen Akkords
+    def transpose_chord(match):
+        chord = match.group(1)  # Der Akkord ohne [ch] Tags
+        base_note_match = re.match(r"([A-H][#b]?[is|es]?)(.*)", chord)
+        
+        if not base_note_match:
+            return match.group(0)  # Falls kein Akkord erkannt wurde, unverändert lassen
+        
+        base_note, suffix = base_note_match.groups()
+        
+        if base_note not in note_map:
+            return match.group(0)
+        
+        transposed_index = (note_map[base_note] + transpose_by) % 12
+        
+        if base_note in notes:
+            transposed_note = notes[transposed_index]
+        else:
+            transposed_note = notes_flat[transposed_index]
+        
+        return f"[ch]{transposed_note}{suffix}[/ch]"
+    
+    # Akkorde in [ch] Tags erkennen und transponieren
+    return re.sub(r"\[ch\]([^\[]+)\[/ch\]", transpose_chord, songtext)
 
 
 
@@ -72,10 +114,15 @@ def clean_content(content):
     content = content.replace('[tab]', '')
     content = content.replace('[/tab]', '')
     content = content.replace('&', '')
-    content = content.replace('#', '')
+    #content = content.replace('#', '')
     content = content.replace('\\quot', '')
     content = content.replace('\\&quot;', '')
     content = content.replace('039;', '\'')
+    content = content.replace(u"\u2018", "\'")
+    content = content.replace(u"\u2019", "\'")
+    content = content.replace(u"\u2524", " ")
+    content = content.replace(u"\u0398", " ")
+
     content = html.unescape(content)
     return content
 
@@ -116,11 +163,21 @@ def create_latex_pdf(content):
         pdf_file_path = os.path.join(os.path.curdir, 'document.pdf')
         return pdf_file_path
 
+#def try_break_lines(lines, max_len, percentage_to_break):
+#    meanLineLenght = np.mean([len(i) for i in lines])
+#    if meanLineLenght > max_len:
+#        return lines
+#    num_lines_greater = np.sum(len(i)>max_len for i in lines)
+#    if num_lines_greater/len(lines) < percentage_to_break:
+#        for i in range(len(lines)):
+#            if len(lines[i])>max_len:
+
+
 def text_to_multicolumn(text):
 
     max_lines_per_page = LINES_PER_PAGE
     max_characters_per_page = CHARACTERS_PER_LINE
-    min_v_dist = 0
+    min_v_dist = 2
     lines_in_list = text.split("\n")
     restlines = len(lines_in_list)
     returnlines = []
@@ -146,15 +203,8 @@ def text_to_multicolumn(text):
                     
     return "\n".join(returnlines) + "\n".join(lines_in_list)
     
-    
 
-
-def main():
-    url = 'https://tabs.ultimate-guitar.com/tab/coldplay/viva-la-vida-chords-675427'  # Ersetze dies durch die gewünschte URL
-    url = 'https://tabs.ultimate-guitar.com/tab/coldplay/the-scientist-chords-50712'
-    url = "https://tabs.ultimate-guitar.com/tab/britney-spears/baby-one-more-time-chords-279810"
-    url = "https://tabs.ultimate-guitar.com/tab/liquido/narcotic-chords-924106"
-    #url = 'https://tabs.ultimate-guitar.com/tab/bryan-adams/summer-of-69-chords-843137'
+def crawl_tabs(url, transposeBy, output, german = False):
     try:
         
         html_content = fetch_website_content(url)
@@ -167,26 +217,41 @@ def main():
         title = tabParser.get_song_name()
 
         extracted_content = tabParser.get_tabs_content()
+        if transposeBy != 0:
+            transposed_content = transpose(extracted_content, transposeBy, german)
+        else:
+            transposed_content = extracted_content
         
-        cleaned_content = clean_content(extracted_content)
+        cleaned_content = clean_content(transposed_content)
         
         cleaned_content = text_to_multicolumn(cleaned_content)
 
         #cleaned_content = escape_latex(cleaned_content)
         
         #pdf_file_path = create_latex_pdf(cleaned_content)
-        output_folder = "out/"
+        output_folder = output + "/"
         output_name = output_folder + f"{"_".join(title.split(" "))}"
         with open (output_name + '.txt', 'w',  encoding='utf-8') as file:
+            file.write(url+"\n")
             file.write(cleaned_content)
             
         #pdf_file_path = "Test.pdf"
         txt_to_pdf(cleaned_content, title, output_name + ".pdf")
         
         print(f"PDF {title} wurde erfolgreich erstellt:")
+        os.startfile(os.path.abspath(output_name + ".pdf"))
     
     except Exception as e:
         print(f"Fehler: {e}")
+
+
+def main():
+    url = 'https://tabs.ultimate-guitar.com/tab/coldplay/viva-la-vida-chords-675427'  # Ersetze dies durch die gewünschte URL
+    url = 'https://tabs.ultimate-guitar.com/tab/coldplay/the-scientist-chords-50712'
+    url = "https://tabs.ultimate-guitar.com/tab/britney-spears/baby-one-more-time-chords-279810"
+    url = "https://tabs.ultimate-guitar.com/tab/liquido/narcotic-chords-924106"
+    #url = 'https://tabs.ultimate-guitar.com/tab/bryan-adams/summer-of-69-chords-843137'
+    crawl_tabs(url, 1, "out")
 
 
 def testPDF():
