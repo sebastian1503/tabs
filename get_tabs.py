@@ -122,6 +122,7 @@ def clean_content(content):
     content = content.replace(u"\u2019", "\'")
     content = content.replace(u"\u2524", " ")
     content = content.replace(u"\u0398", " ")
+    content = content.replace(u"\u2013", " ")
 
     content = html.unescape(content)
     return content
@@ -206,14 +207,12 @@ def text_to_multicolumn(text):
 
 def crawl_tabs(url, transposeBy, output, german = False):
     try:
-        
         html_content = fetch_website_content(url)
 
         with open("debug.html", 'w',  encoding='utf-8') as file:
             file.write(html_content)
         
         tabParser = TabParser(html_content)
-
         title = tabParser.get_song_name()
 
         extracted_content = tabParser.get_tabs_content()
@@ -223,26 +222,23 @@ def crawl_tabs(url, transposeBy, output, german = False):
             transposed_content = extracted_content
         
         cleaned_content = clean_content(transposed_content)
-        
         cleaned_content = text_to_multicolumn(cleaned_content)
 
-        #cleaned_content = escape_latex(cleaned_content)
-        
-        #pdf_file_path = create_latex_pdf(cleaned_content)
         output_folder = output + "/"
-        output_name = output_folder + f"{"_".join(title.split(" "))}"
-        with open (output_name + '.txt', 'w',  encoding='utf-8') as file:
-            file.write(url+"\n")
+        output_name = output_folder + "_".join(title.split(" "))
+        with open(output_name + '.txt', 'w', encoding='utf-8') as file:
+            file.write(url + "\n")
             file.write(cleaned_content)
             
-        #pdf_file_path = "Test.pdf"
-        txt_to_pdf(cleaned_content, title, output_name + ".pdf")
-        
+        pdf_path = output_name + ".pdf"
+        txt_to_pdf(cleaned_content, title, pdf_path)
+
         print(f"PDF {title} wurde erfolgreich erstellt:")
-        os.startfile(os.path.abspath(output_name + ".pdf"))
+        return os.path.abspath(pdf_path), title  # <— Rückgabe Pfad + Titel
     
     except Exception as e:
         print(f"Fehler: {e}")
+        raise
 
 
 def main():
